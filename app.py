@@ -24,7 +24,6 @@ def tank(h, t, q_in):
     return (float(q_in) - q_out) / A  # Upewnij się, że q_in jest wartością zmiennoprzecinkową
 
 
-
 # Symulacja zbiornika bez regulatora
 t = np.linspace(0, 100)
 h0 = 0.0
@@ -38,7 +37,7 @@ K_d = 0.01
 h_ref = 1
 
 
-def pid_controller(t, h, h_ref, h_prev, e_int, dt):
+def pid_controller(t, h, h_ref, h_prev, e_int, dt, K_p=0.1, K_i=0.1, K_d=0.01):
     e = h_ref - h
     e_der = (h - h_prev) / dt
     e_int += e * dt
@@ -93,7 +92,6 @@ for i in range(1, len(t)):
     h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
     e_prev = e
 
-
 app = dash.Dash(__name__)
 
 app.layout = html.Div([
@@ -132,6 +130,39 @@ app.layout = html.Div([
         )
     ]),
 
+    html.Div([
+        html.Label('P'),
+        dcc.Slider(
+            id='p-slider',
+            min=0,
+            max=1,
+            step=0.01,
+            value=0.1,
+        )
+    ]),
+
+    html.Div([
+        html.Label('I'),
+        dcc.Slider(
+            id='i-slider',
+            min=0,
+            max=1,
+            step=0.01,
+            value=0.1,
+        )
+    ]),
+
+    html.Div([
+        html.Label('D'),
+        dcc.Slider(
+            id='d-slider',
+            min=0,
+            max=1,
+            step=0.01,
+            value=0.01,
+        )
+    ]),
+
     html.Div(children=[
         dcc.Graph(id='graph1', style={'display': 'inline-block', 'width': '60vh'}),
         dcc.Graph(id='graph2', style={'display': 'inline-block', 'width': '60vh'}),
@@ -146,9 +177,13 @@ app.layout = html.Div([
      Output('graph3', 'figure')],
     [Input('q_in-slider', 'value'),
      Input('h_ref-slider', 'value'),
-     Input('t-slider', 'value')]
+     Input('t-slider', 'value'),
+     Input('p-slider', 'value'),
+     Input('i-slider', 'value'),
+     Input('d-slider', 'value'),
+     ]
 )
-def update_graph(q_in_slider_value, h_ref_slider_value, t_value):
+def update_graph(q_in_slider_value, h_ref_slider_value, t_value, p_value, i_value, d_value):
     # Symulacja zbiornika bez regulatora
     t = np.linspace(0, t_value)
     q_in = q_in_slider_value  # Użyj wartości z suwaka
@@ -162,7 +197,7 @@ def update_graph(q_in_slider_value, h_ref_slider_value, t_value):
     e_int = 0.0
     for i in range(1, len(t)):
         dt = t[i] - t[i - 1]
-        q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt)
+        q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt,  p_value, i_value, d_value)
         h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]  # Dodanie przecinka
     trace2 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem PID')
 

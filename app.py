@@ -9,6 +9,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
+import dash_bootstrap_components as dbc
 
 # Parametry zbiornika
 A = 1.0  # przekrój zbiornika
@@ -20,19 +21,15 @@ def tank(h, t, q_in):
     if h < 0:
         h = 0.0
     q_out = C * np.sqrt(h)
-    return (q_in - q_out) / A
+    return (float(q_in) - q_out) / A  # Upewnij się, że q_in jest wartością zmiennoprzecinkową
+
 
 
 # Symulacja zbiornika bez regulatora
 t = np.linspace(0, 100)
 h0 = 0.0
 q_in = 1.5
-h = odeint(tank, h0, t, args=(q_in,))
-# plt.figure()
-# plt.plot(t, h)
-# plt.title('Zbiornik bez regulatora')
-# plt.xlabel('Czas')
-# plt.ylabel('Poziom wody')
+h = odeint(tank, h0, t, args=(q_in,))  # Dodanie przecinka
 
 # Regulator PID
 K_p = 0.1
@@ -46,7 +43,7 @@ def pid_controller(t, h, h_ref, h_prev, e_int, dt):
     e_der = (h - h_prev) / dt
     e_int += e * dt
     q_in = K_p * e + K_i * e_int + K_d * e_der
-    return max(0, q_in), e, e_int
+    return max(0.0, float(q_in)), e, e_int  # Upewnij się, że zwracana wartość q_in jest wartością zmiennoprzecinkową
 
 
 h0 = 0.0
@@ -58,12 +55,6 @@ for i in range(1, len(t)):
     dt = t[i] - t[i - 1]
     q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt)
     h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
-
-# plt.figure()
-# plt.plot(t, h)
-# plt.title('Zbiornik z regulatorem PID')
-# plt.xlabel('Czas')
-# plt.ylabel('Poziom wody')
 
 # Regulator rozmyty
 # Definiowanie zbiorów rozmytych
@@ -102,22 +93,50 @@ for i in range(1, len(t)):
     h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
     e_prev = e
 
-# plt.figure()
-# plt.plot(t, h)
-# plt.title('Zbiornik z regulatorem rozmytym')
-# plt.xlabel('Czas')
-# plt.ylabel('Poziom wody')
-#
-# plt.show()
-
 
 app = dash.Dash(__name__)
 
 app.layout = html.Div([
     html.H1('Symulacja systemu sterowania zbiornikiem'),
-    dcc.Graph(id='graph1'),
-    dcc.Graph(id='graph2'),
-    dcc.Graph(id='graph3')
+
+    html.Div([
+        html.Label('Wpływ wody'),
+        dcc.Slider(
+            id='q_in-slider',
+            min=0,
+            max=10,
+            step=0.1,
+            value=1.5
+        )
+    ]),
+
+    html.Div([
+        html.Label('Zadany poziom wody'),
+        dcc.Slider(
+            id='h_ref-slider',
+            min=0,
+            max=5,
+            step=0.1,
+            value=1,
+        )
+    ]),
+
+    html.Div([
+        html.Label('Czas symulacji'),
+        dcc.Slider(
+            id='t-slider',
+            min=20,
+            max=200,
+            step=10,
+            value=100,
+        )
+    ]),
+
+    html.Div(children=[
+        dcc.Graph(id='graph1', style={'display': 'inline-block', 'width': '60vh'}),
+        dcc.Graph(id='graph2', style={'display': 'inline-block', 'width': '60vh'}),
+        dcc.Graph(id='graph3', style={'display': 'inline-block', 'width': '60vh'})
+    ])
 ])
 
 
@@ -125,25 +144,26 @@ app.layout = html.Div([
     [Output('graph1', 'figure'),
      Output('graph2', 'figure'),
      Output('graph3', 'figure')],
-    [Input('graph1', 'id'),
-     Input('graph2', 'id'),
-     Input('graph3', 'id')]
+    [Input('q_in-slider', 'value'),
+     Input('h_ref-slider', 'value'),
+     Input('t-slider', 'value')]
 )
-def update_graph(input_data1, input_data2, input_data3):
+def update_graph(q_in_slider_value, h_ref_slider_value, t_value):
     # Symulacja zbiornika bez regulatora
-    t = np.linspace(0, 100)
-    q_in = 1.5
+    t = np.linspace(0, t_value)
+    q_in = q_in_slider_value  # Użyj wartości z suwaka
     h = odeint(tank, h0, t, args=(q_in,))
     trace1 = go.Scatter(x=t, y=np.squeeze(h), mode='lines', name='Zbiornik bez regulatora')
 
     # Symulacja zbiornika z regulatorem PID
+    h_ref = h_ref_slider_value  # Użyj wartości z suwaka
     h = np.zeros_like(t)
     h[0] = h0
     e_int = 0.0
     for i in range(1, len(t)):
         dt = t[i] - t[i - 1]
         q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt)
-        h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
+        h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]  # Dodanie przecinka
     trace2 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem PID')
 
     # Symulacja zbiornika z regulatorem rozmytym
@@ -156,8 +176,8 @@ def update_graph(input_data1, input_data2, input_data3):
         controller.input['e'] = e
         controller.input['de'] = de
         controller.compute()
-        q_in = controller.output['q_in']
-        h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
+        q_in = float(controller.output['q_in'])
+        h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]  # Dodanie przecinka
         e_prev = e
     trace3 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem rozmytym')
 

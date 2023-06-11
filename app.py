@@ -12,7 +12,8 @@ C = 1.0  # stała
 
 # Model zbiornika
 def tank(h, t, q_in):
-    if h < 0: h = 0.0
+    if h < 0:
+        h = 0.0
     q_out = C * np.sqrt(h)
     return (q_in - q_out) / A
 
@@ -61,20 +62,26 @@ plt.ylabel('Poziom wody')
 
 # Regulator rozmyty
 # Definiowanie zbiorów rozmytych
-e = ctrl.Antecedent(np.arange(-1, 1, 0.01), 'e')
-de = ctrl.Antecedent(np.arange(-1, 1, 0.01), 'de')
-q_in = ctrl.Consequent(np.arange(-1, 1, 0.01), 'q_in')
+e = ctrl.Antecedent(np.arange(-1, 12, 0.01), 'e')  # zwiększony zakres
+de = ctrl.Antecedent(np.arange(-1, 10, 0.01), 'de')  # zwiększony zakres
+q_in = ctrl.Consequent(np.arange(-1, 12, 0.01), 'q_in')  # zwiększony zakres
 
-e.automf(3)
-de.automf(3)
-q_in.automf(3)
+e.automf(7)  # Więcej funkcji przynależności
+de.automf(7)  # Więcej funkcji przynależności
+q_in.automf(7)  # Więcej funkcji przynależności
 
+# Zdefiniuj więcej reguł dla większej liczby funkcji przynależności
 rule1 = ctrl.Rule(e['poor'] & de['poor'], q_in['poor'])
-rule2 = ctrl.Rule(e['average'] & de['average'], q_in['average'])
-rule3 = ctrl.Rule(e['good'] & de['good'], q_in['good'])
+rule2 = ctrl.Rule(e['mediocre'] & de['mediocre'], q_in['mediocre'])
+rule3 = ctrl.Rule(e['average'] & de['average'], q_in['average'])
+rule4 = ctrl.Rule(e['decent'] & de['decent'], q_in['decent'])
+rule5 = ctrl.Rule(e['good'] & de['good'], q_in['good'])
+rule6 = ctrl.Rule(e['excellent'] & de['excellent'], q_in['excellent'])
+rule7 = ctrl.Rule(e['dismal'] & de['dismal'], q_in['dismal'])
 
-control_system = ctrl.ControlSystem([rule1, rule2, rule3])
+control_system = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7])
 controller = ctrl.ControlSystemSimulation(control_system)
+
 
 h0 = 0.0
 h = np.zeros_like(t)

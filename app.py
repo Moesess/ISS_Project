@@ -4,6 +4,11 @@ from scipy.optimize import least_squares
 import matplotlib.pyplot as plt
 import skfuzzy as fuzz
 from skfuzzy import control as ctrl
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.graph_objs as go
 
 # Parametry zbiornika
 A = 1.0  # przekrój zbiornika
@@ -23,11 +28,11 @@ t = np.linspace(0, 100)
 h0 = 0.0
 q_in = 1.5
 h = odeint(tank, h0, t, args=(q_in,))
-plt.figure()
-plt.plot(t, h)
-plt.title('Zbiornik bez regulatora')
-plt.xlabel('Czas')
-plt.ylabel('Poziom wody')
+# plt.figure()
+# plt.plot(t, h)
+# plt.title('Zbiornik bez regulatora')
+# plt.xlabel('Czas')
+# plt.ylabel('Poziom wody')
 
 # Regulator PID
 K_p = 0.1
@@ -54,11 +59,11 @@ for i in range(1, len(t)):
     q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt)
     h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
 
-plt.figure()
-plt.plot(t, h)
-plt.title('Zbiornik z regulatorem PID')
-plt.xlabel('Czas')
-plt.ylabel('Poziom wody')
+# plt.figure()
+# plt.plot(t, h)
+# plt.title('Zbiornik z regulatorem PID')
+# plt.xlabel('Czas')
+# plt.ylabel('Poziom wody')
 
 # Regulator rozmyty
 # Definiowanie zbiorów rozmytych
@@ -82,7 +87,6 @@ rule7 = ctrl.Rule(e['dismal'] & de['dismal'], q_in['dismal'])
 control_system = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7])
 controller = ctrl.ControlSystemSimulation(control_system)
 
-
 h0 = 0.0
 h = np.zeros_like(t)
 h[0] = h0
@@ -98,10 +102,71 @@ for i in range(1, len(t)):
     h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
     e_prev = e
 
-plt.figure()
-plt.plot(t, h)
-plt.title('Zbiornik z regulatorem rozmytym')
-plt.xlabel('Czas')
-plt.ylabel('Poziom wody')
+# plt.figure()
+# plt.plot(t, h)
+# plt.title('Zbiornik z regulatorem rozmytym')
+# plt.xlabel('Czas')
+# plt.ylabel('Poziom wody')
+#
+# plt.show()
 
-plt.show()
+
+app = dash.Dash(__name__)
+
+app.layout = html.Div([
+    html.H1('Symulacja systemu sterowania zbiornikiem'),
+    dcc.Graph(id='graph1'),
+    dcc.Graph(id='graph2'),
+    dcc.Graph(id='graph3')
+])
+
+
+@app.callback(
+    [Output('graph1', 'figure'),
+     Output('graph2', 'figure'),
+     Output('graph3', 'figure')],
+    [Input('graph1', 'id'),
+     Input('graph2', 'id'),
+     Input('graph3', 'id')]
+)
+def update_graph(input_data1, input_data2, input_data3):
+    # Symulacja zbiornika bez regulatora
+    t = np.linspace(0, 100)
+    q_in = 1.5
+    h = odeint(tank, h0, t, args=(q_in,))
+    trace1 = go.Scatter(x=t, y=np.squeeze(h), mode='lines', name='Zbiornik bez regulatora')
+
+    # Symulacja zbiornika z regulatorem PID
+    h = np.zeros_like(t)
+    h[0] = h0
+    e_int = 0.0
+    for i in range(1, len(t)):
+        dt = t[i] - t[i - 1]
+        q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt)
+        h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
+    trace2 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem PID')
+
+    # Symulacja zbiornika z regulatorem rozmytym
+    h = np.zeros_like(t)
+    h[0] = h0
+    e_prev = 0.0
+    for i in range(1, len(t)):
+        e = h_ref - h[i - 1]
+        de = (e - e_prev) / dt
+        controller.input['e'] = e
+        controller.input['de'] = de
+        controller.compute()
+        q_in = controller.output['q_in']
+        h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
+        e_prev = e
+    trace3 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem rozmytym')
+
+    return (
+        {'data': [trace1], 'layout': go.Layout(title='Zbiornik bez regulatora')},
+        {'data': [trace2], 'layout': go.Layout(title='Zbiornik z regulatorem PID')},
+        {'data': [trace3], 'layout': go.Layout(title='Zbiornik z regulatorem rozmytym')}
+    )
+
+
+if __name__ == '__main__':
+    app.run_server(debug=True)

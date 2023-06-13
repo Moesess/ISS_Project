@@ -81,7 +81,7 @@ h = np.zeros_like(t)
 h[0] = h0
 e_prev = 0.0
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY], suppress_callback_exceptions=True)
 
 '''Tworzony jest interfejs użytkownika za pomocą biblioteki Dash. Interfejs zawiera interaktywne wykresy przedstawiające
 zmiany poziomu cieczy w zbiorniku dla symulacji bez regulatora oraz z regulatorem PID. Wykresy są tworzone za pomocą
@@ -95,7 +95,7 @@ app.layout = html.Div(
 
         html.Div(
             [
-                html.Label('Zadany poziom cieczy (h_ref)',
+                html.Label('Zadany poziom cieczy (h_ref[m])',
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
                 dcc.Slider(
@@ -112,7 +112,7 @@ app.layout = html.Div(
 
         html.Div(
             [
-                html.Label('Czas symulacji (t)', style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                html.Label('Czas symulacji (t[s])', style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                                         'font-style': 'italic'}),
                 dcc.Slider(
                     id='t-slider',
@@ -179,7 +179,7 @@ app.layout = html.Div(
 
         html.Div(
             [
-                html.Label('Początkowy poziom cieczy (h0)',
+                html.Label('Początkowy poziom cieczy (h0[m])',
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
                 dcc.Slider(
@@ -196,7 +196,7 @@ app.layout = html.Div(
 
         html.Div(
             [
-                html.Label('Przekrój zbiornika (a)',
+                html.Label('Przekrój zbiornika (a[m])',
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
                 dcc.Slider(
@@ -246,7 +246,7 @@ app.layout = html.Div(
 
         html.Div(
             [
-                html.Label('Współczynnik wpływu cieczy (q_in)',
+                html.Label('Współczynnik wpływu cieczy (q_in [m^3/s])',
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
                 dcc.Slider(
@@ -369,4 +369,4 @@ def update_graph(h_ref_slider_value, t_value, p_value,
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)

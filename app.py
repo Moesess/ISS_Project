@@ -302,20 +302,21 @@ def update_graph(h_ref_slider_value, t_value, p_value,
     de = ctrl.Antecedent(np.arange(-1, de_slider, 0.01), 'de')  # zwiększony zakres
     q_in_ctr = ctrl.Consequent(np.arange(-1, q_in_slider, 0.01), 'q_in')  # zwiększony zakres
 
-    e.automf(7)  # Więcej funkcji przynależności
-    de.automf(7)  # Więcej funkcji przynależności
-    q_in_ctr.automf(7)  # Więcej funkcji przynależności
+    e.automf(5)  # Więcej funkcji przynależności
+    de.automf(5)  # Więcej funkcji przynależności
+    q_in_ctr.automf(5)  # Więcej funkcji przynależności
 
     # Zdefiniuj więcej reguł dla większej liczby funkcji przynależności
-    rule1 = ctrl.Rule(e['poor'] & de['poor'], q_in_ctr['poor'])
+    # rule1 = ctrl.Rule(e['poor'] & de['poor'], q_in_ctr['poor'])
     rule2 = ctrl.Rule(e['mediocre'] & de['mediocre'], q_in_ctr['mediocre'])
     rule3 = ctrl.Rule(e['average'] & de['average'], q_in_ctr['average'])
     rule4 = ctrl.Rule(e['decent'] & de['decent'], q_in_ctr['decent'])
     rule5 = ctrl.Rule(e['good'] & de['good'], q_in_ctr['good'])
     rule6 = ctrl.Rule(e['excellent'] & de['excellent'], q_in_ctr['excellent'])
-    rule7 = ctrl.Rule(e['dismal'] & de['dismal'], q_in_ctr['dismal'])
+    # rule7 = ctrl.Rule(e['dismal'] & de['dismal'], q_in_ctr['dismal'])
 
-    control_system = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7])
+    # control_system = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7])
+    control_system = ctrl.ControlSystem([rule2, rule3, rule4, rule5, rule6])
     controller = ctrl.ControlSystemSimulation(control_system)
 
     # Symulacja zbiornika bez regulatora

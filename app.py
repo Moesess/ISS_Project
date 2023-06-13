@@ -1,12 +1,9 @@
 import numpy as np
 from scipy.integrate import odeint
-from scipy.optimize import least_squares
-import matplotlib.pyplot as plt
-import skfuzzy as fuzz
 from skfuzzy import control as ctrl
 import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
@@ -23,11 +20,21 @@ def tank(h, t, q_in, A=1.0):
     return (float(q_in) - q_out) / A  # Upewnij się, że q_in jest wartością zmiennoprzecinkową
 
 
+'''Zdefiniowana jest funkcja tank, która reprezentuje model matematyczny zbiornika.
+Przyjmuje ona argumenty: h - poziom cieczy w zbiorniku, t - czas, q_in - przepływ do zbiornika, A - przekrój zbiornika
+(domyślnie ustawiony na 1.0). Funkcja oblicza przepływ q_out na podstawie równania q_out = C * sqrt(h) i zwraca wartość
+zmiany poziomu cieczy w zbiorniku.'''
+
 # Symulacja zbiornika bez regulatora
 t = np.linspace(0, 100)
 h0 = 0.0
 q_in = 1.5
 h = odeint(tank, h0, t, args=(q_in,))  # Dodanie przecinka
+
+'''Tworzona jest symulacja zbiornika bez regulatora. Tworzony jest równomierny grid czasu t w zakresie od 0 do 100.
+Ustawiany jest początkowy poziom cieczy h0 na 0.0 i przepływ do zbiornika q_in na 1.5.
+Następnie wykorzystując funkcję odeint z modułu scipy.integrate, obliczane są wartości poziomu cieczy h w kolejnych
+chwilach czasu.'''
 
 # Regulator PID
 K_p = 0.1
@@ -38,11 +45,17 @@ h_ref = 1
 
 def pid_controller(t, h, h_ref, h_prev, e_int, dt, K_p=0.1, K_i=0.1, K_d=0.01):
     e = h_ref - h
-    e_der = (h - h_prev) / dt
+    de = (h - h_prev) / dt
     e_int += e * dt
-    q_in = K_p * e + K_i * e_int + K_d * e_der
+    q_in = K_p * e + K_i * e_int + K_d * de
     return max(0.0, float(q_in)), e, e_int  # Upewnij się, że zwracana wartość q_in jest wartością zmiennoprzecinkową
 
+
+'''Zdefiniowana jest funkcja pid_controller, która implementuje algorytm regulatora PID. Przyjmuje ona argumenty:
+t - czas, h - aktualny poziom cieczy, h_ref - zadany poziom cieczy, h_prev - poprzedni poziom cieczy,
+e_int - całkowity błąd regulacji, dt - różnica czasu, oraz opcjonalne parametry regulatora PID: K_p, K_i, K_d.
+Funkcja oblicza błąd regulacji e, pochodną błędu de, całkowity błąd regulacji e_int, oraz sygnał sterujący q_in
+na podstawie algorytmu PID. Funkcja zwraca wartość sygnału sterującego q_in.'''
 
 h0 = 0.0
 h = np.zeros_like(t)
@@ -54,152 +67,232 @@ for i in range(1, len(t)):
     q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt)
     h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in,))[1]
 
+'''W pętli for dla każdej chwili czasu t[i] (począwszy od drugiego elementu):
 
+Obliczana jest różnica czasu dt między bieżącym a poprzednim czasem.
+Wywoływana jest funkcja pid_controller z odpowiednimi argumentami, aby obliczyć wartość sygnału sterującego q_in,
+błąd regulacji e i całkowity błąd regulacji e_int. Wykorzystując funkcję odeint z modułu scipy.integrate,
+obliczany jest nowy poziom cieczy h[i] w zbiorniku, na podstawie poprzedniego poziomu cieczy h[i - 1] oraz wartości
+sygnału sterującego q_in. Funkcja odeint rozwiązuje równanie różniczkowe opisujące zachowanie zbiornika.
+Na końcu pętli for wartość bieżącego poziomu cieczy h[i] jest zapisywana do tablicy h.'''
 
 h0 = 0.0
 h = np.zeros_like(t)
 h[0] = h0
 e_prev = 0.0
 
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.DARKLY])
 
-app.layout = html.Div([
-    html.H1('Symulacja systemu sterowania zbiornikiem'),
+'''Tworzony jest interfejs użytkownika za pomocą biblioteki Dash. Interfejs zawiera interaktywne wykresy przedstawiające
+zmiany poziomu cieczy w zbiorniku dla symulacji bez regulatora oraz z regulatorem PID. Wykresy są tworzone za pomocą
+modułu plotly.graph_objs. Dodatkowo, interfejs umożliwia wprowadzanie wartości parametrów regulatora PID i zadanej
+wartości poziomu cieczy.'''
 
-    html.Div([
-        html.Label('Zadany poziom wody'),
-        dcc.Slider(
-            id='h_ref-slider',
-            min=0,
-            max=5,
-            step=0.1,
-            value=1,
+app.layout = html.Div(
+    [
+        html.H1('Symulacja regulatora poziomu cieczy w zbiorniku',
+                style={'color': '#00b3ff', 'margin': '0 auto', 'text-align': 'center', 'margin-bottom': '20px'}),
+
+        html.Div(
+            [
+                html.Label('Zadany poziom cieczy (h_ref)',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Slider(
+                    id='h_ref-slider',
+                    min=0,
+                    max=5,
+                    step=0.1,
+                    value=1,
+                    className='slider',
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Czas symulacji (t)', style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                                        'font-style': 'italic'}),
+                dcc.Slider(
+                    id='t-slider',
+                    min=20,
+                    max=200,
+                    step=10,
+                    value=100,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Współczynnik proporcjonalny (P)',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Slider(
+                    id='p-slider',
+                    min=0,
+                    max=1,
+                    step=0.05,
+                    value=0.1,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Współczynnik całkujący (I)',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Slider(
+                    id='i-slider',
+                    min=0,
+                    max=1,
+                    step=0.05,
+                    value=0.1,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Współczynnik różniczkujący (D)',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Slider(
+                    id='d-slider',
+                    min=0,
+                    max=0.5,
+                    step=0.01,
+                    value=0.01,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Początkowy poziom cieczy (h0)',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Slider(
+                    id='h-slider',
+                    min=0,
+                    max=5,
+                    step=0.1,
+                    value=0,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Przekrój zbiornika (a)',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Slider(
+                    id='a-slider',
+                    min=0,
+                    max=5,
+                    step=0.1,
+                    value=1,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Błąd regulacji (e)', style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                                        'font-style': 'italic'}),
+                dcc.Slider(
+                    id='e-slider',
+                    min=5,
+                    max=20,
+                    step=0.5,
+                    value=10,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Zmiana błędu regulacji (de)',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Slider(
+                    id='de-slider',
+                    min=5,
+                    max=20,
+                    step=0.5,
+                    value=10,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                html.Label('Współczynnik wpływu cieczy (q_in)',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Slider(
+                    id='q_in-slider',
+                    min=5,
+                    max=20,
+                    step=0.5,
+                    value=10,
+                    className='slider'
+                )
+            ],
+            className='slider-container'
+        ),
+
+        html.Div(
+            [
+                dcc.Graph(id='graph1', style={'display': 'inline-block', 'width': '33%', 'height': '100%'}),
+                dcc.Graph(id='graph2', style={'display': 'inline-block', 'width': '33%', 'height': '100%'}),
+                dcc.Graph(id='graph3', style={'display': 'inline-block', 'width': '33%', 'height': '100%'})
+            ],
+            className='graph-container',
+            style={'display': 'flex', 'justify-content': 'center', 'align-items': 'center'}
         )
-    ]),
-
-    html.Div([
-        html.Label('Czas symulacji'),
-        dcc.Slider(
-            id='t-slider',
-            min=20,
-            max=200,
-            step=10,
-            value=100,
-        )
-    ]),
-
-    html.Div([
-        html.Label('P'),
-        dcc.Slider(
-            id='p-slider',
-            min=0,
-            max=1,
-            step=0.05,
-            value=0.1,
-        )
-    ]),
-
-    html.Div([
-        html.Label('I'),
-        dcc.Slider(
-            id='i-slider',
-            min=0,
-            max=1,
-            step=0.05,
-            value=0.1,
-        )
-    ]),
-
-    html.Div([
-        html.Label('D'),
-        dcc.Slider(
-            id='d-slider',
-            min=0,
-            max=0.5,
-            step=0.01,
-            value=0.01,
-        )
-    ]),
-
-    html.Div([
-        html.Label('Początkowy poziom wody'),
-        dcc.Slider(
-            id='h-slider',
-            min=0,
-            max=5,
-            step=0.1,
-            value=0
-        )
-    ]),
-
-    html.Div([
-        html.Label('Przekrój zbiornika'),
-        dcc.Slider(
-            id='a-slider',
-            min=0,
-            max=5,
-            step=0.1,
-            value=1
-        )
-    ]),
-
-    html.Div([
-        html.Label('e'),
-        dcc.Slider(
-            id='e-slider',
-            min=5,
-            max=20,
-            step=0.5,
-            value=10
-        )
-    ]),
-
-    html.Div([
-        html.Label('de'),
-        dcc.Slider(
-            id='de-slider',
-            min=5,
-            max=20,
-            step=0.5,
-            value=10
-        )
-    ]),
-
-    html.Div([
-        html.Label('Współczynnik wpływu wody'),
-        dcc.Slider(
-            id='q_in-slider',
-            min=5,
-            max=20,
-            step=0.5,
-            value=10
-        )
-    ]),
-
-    html.Div(children=[
-        dcc.Graph(id='graph1', style={'display': 'inline-block', 'width': '55vh'}),
-        dcc.Graph(id='graph2', style={'display': 'inline-block', 'width': '55vh'}),
-        dcc.Graph(id='graph3', style={'display': 'inline-block', 'width': '55vh'})
-    ])
-])
+    ],
+    style={'backgroundColor': '#212529', 'padding': "10px"}
+)
 
 
 @app.callback(
-    [Output('graph1', 'figure'),
-     Output('graph2', 'figure'),
-     Output('graph3', 'figure')],
     [
-     Input('h_ref-slider', 'value'),
-     Input('t-slider', 'value'),
-     Input('p-slider', 'value'),
-     Input('i-slider', 'value'),
-     Input('d-slider', 'value'),
-     Input('h-slider', 'value'),
-     Input('a-slider', 'value'),
-     Input('e-slider', 'value'),
-     Input('de-slider', 'value'),
-     Input('q_in-slider', 'value'),
-     ]
+        Output('graph1', 'figure'),
+        Output('graph2', 'figure'),
+        Output('graph3', 'figure')
+    ],
+    [
+        Input('h_ref-slider', 'value'),
+        Input('t-slider', 'value'),
+        Input('p-slider', 'value'),
+        Input('i-slider', 'value'),
+        Input('d-slider', 'value'),
+        Input('h-slider', 'value'),
+        Input('a-slider', 'value'),
+        Input('e-slider', 'value'),
+        Input('de-slider', 'value'),
+        Input('q_in-slider', 'value')
+    ]
 )
 def update_graph(h_ref_slider_value, t_value, p_value,
                  i_value, d_value, h_value, a_value, e_slider, de_slider, q_in_slider):
@@ -230,7 +323,7 @@ def update_graph(h_ref_slider_value, t_value, p_value,
     q_in = q_in_slider  # Użyj wartości z suwaka
     h0 = h_value
     h = odeint(tank, h0, t, args=(q_in, a_value,))
-    trace1 = go.Scatter(x=t, y=np.squeeze(h), mode='lines', name='Zbiornik bez regulatora')
+    trace1 = go.Scatter(x=t, y=np.squeeze(h), mode='lines', name='Zbiornik bez regulatora', line=dict(color='#FF0000'))
 
     # Symulacja zbiornika z regulatorem PID
     h_ref = h_ref_slider_value  # Użyj wartości z suwaka
@@ -239,9 +332,10 @@ def update_graph(h_ref_slider_value, t_value, p_value,
     e_int = 0.0
     for i in range(1, len(t)):
         dt = t[i] - t[i - 1]
-        q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt,  p_value, i_value, d_value)
+        q_in, e, e_int = pid_controller(t[i], h[i - 1], h_ref, h[i - 2] if i > 1 else h[i - 1], e_int, dt, p_value,
+                                        i_value, d_value)
         h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in, a_value,))[1]  # Dodanie przecinka
-    trace2 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem PID')
+    trace2 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem PID', line=dict(color='#FF0000'))
 
     # Symulacja zbiornika z regulatorem rozmytym
     h = np.zeros_like(t)
@@ -256,13 +350,22 @@ def update_graph(h_ref_slider_value, t_value, p_value,
         q_in = float(controller.output['q_in'])
         h[i] = odeint(tank, h[i - 1], [t[i - 1], t[i]], args=(q_in, a_value,))[1]  # Dodanie przecinka
         e_prev = e
-    trace3 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem rozmytym')
+    trace3 = go.Scatter(x=t, y=h, mode='lines', name='Zbiornik z regulatorem rozmytym', line=dict(color='#FF0000'))
 
-    return (
-        {'data': [trace1], 'layout': go.Layout(title='Zbiornik bez regulatora')},
-        {'data': [trace2], 'layout': go.Layout(title='Zbiornik z regulatorem PID')},
-        {'data': [trace3], 'layout': go.Layout(title='Zbiornik z regulatorem rozmytym')}
-    )
+    layout1 = go.Layout(title='Zbiornik bez regulatora', xaxis=dict(title='Czas [s]'),
+                        yaxis=dict(title='Poziom wody [m]'), plot_bgcolor='#212529', paper_bgcolor='#212529',
+                        font=dict(color='#ffffff'))
+
+    layout2 = go.Layout(title='Zbiornik z regulatorem PID', xaxis=dict(title='Czas [s]'),
+                        yaxis=dict(title='Poziom wody [m]'), plot_bgcolor='#212529', paper_bgcolor='#212529',
+                        font=dict(color='#ffffff'))
+
+    layout3 = go.Layout(title='Zbiornik z regulatorem rozmytym', xaxis=dict(title='Czas [s]'),
+                        yaxis=dict(title='Poziom wody [m]'), plot_bgcolor='#212529', paper_bgcolor='#212529',
+                        font=dict(color='#ffffff'))
+
+    return go.Figure(data=[trace1], layout=layout1), go.Figure(data=[trace2], layout=layout2), go.Figure(
+        data=[trace3], layout=layout3)
 
 
 if __name__ == '__main__':

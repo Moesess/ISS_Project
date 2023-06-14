@@ -1,10 +1,11 @@
 import numpy as np
+from dash.exceptions import PreventUpdate
 from scipy.integrate import odeint
 from skfuzzy import control as ctrl
 import dash
 from dash import dcc
 from dash import html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, MATCH
 import plotly.graph_objs as go
 import dash_bootstrap_components as dbc
 
@@ -98,81 +99,57 @@ app.layout = html.Div(
                 html.Label('Zadany poziom cieczy (h_ref[m])',
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
+                dcc.Input(
+                    id={
+                        'type': 'dynamic-input',
+                        'index': 'h_ref-slider'
+                    },
+                    type='text',
+                    placeholder='Wprowadź wartość...',
+                    value=1,
+                    style={'float': 'right', 'margin-right': 20}
+                ),
                 dcc.Slider(
-                    id='h_ref-slider',
+                    id={
+                        'type': 'dynamic-slider',
+                        'index': 'h_ref-slider'
+                    },
                     min=0,
                     max=5,
-                    step=0.1,
                     value=1,
                     className='slider',
-                )
+                ),
             ],
             className='slider-container'
         ),
 
         html.Div(
             [
-                html.Label('Czas symulacji (t[s])', style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
-                                                        'font-style': 'italic'}),
+                html.Label('Czas symulacji (t[s])',
+                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                  'font-style': 'italic'}),
+                dcc.Input(
+                    id={
+                        'type': 'dynamic-input',
+                        'index': 't-slider'
+                    },
+                    type='text',
+                    placeholder='Wprowadź wartość...',
+                    value=100,
+                    min=20,
+                    style={'float': 'right', 'margin-right': 20}
+                ),
                 dcc.Slider(
-                    id='t-slider',
+                    id={
+                        'type': 'dynamic-slider',
+                        'index': 't-slider'
+                    },
                     min=20,
                     max=200,
-                    step=10,
                     value=100,
-                    className='slider'
-                )
-            ],
-            className='slider-container'
-        ),
+                    className='slider',
 
-        html.Div(
-            [
-                html.Label('Współczynnik proporcjonalny (P)',
-                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
-                                  'font-style': 'italic'}),
-                dcc.Slider(
-                    id='p-slider',
-                    min=0,
-                    max=1,
-                    step=0.05,
-                    value=0.1,
-                    className='slider'
-                )
-            ],
-            className='slider-container'
-        ),
-
-        html.Div(
-            [
-                html.Label('Współczynnik całkujący (I)',
-                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
-                                  'font-style': 'italic'}),
-                dcc.Slider(
-                    id='i-slider',
-                    min=0,
-                    max=1,
-                    step=0.05,
-                    value=0.1,
-                    className='slider'
-                )
-            ],
-            className='slider-container'
-        ),
-
-        html.Div(
-            [
-                html.Label('Współczynnik różniczkujący (D)',
-                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
-                                  'font-style': 'italic'}),
-                dcc.Slider(
-                    id='d-slider',
-                    min=0,
-                    max=0.5,
-                    step=0.01,
-                    value=0.01,
-                    className='slider'
-                )
+                ),
             ],
             className='slider-container'
         ),
@@ -182,14 +159,27 @@ app.layout = html.Div(
                 html.Label('Początkowy poziom cieczy (h0[m])',
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
+                dcc.Input(
+                    id={
+                        'type': 'dynamic-input',
+                        'index': 'h-slider'
+                    },
+                    type='text',
+                    placeholder='Wprowadź wartość...',
+                    value=0,
+                    style={'float': 'right', 'margin-right': 20}
+                ),
+
                 dcc.Slider(
-                    id='h-slider',
+                    id={
+                        'type': 'dynamic-slider',
+                        'index': 'h-slider'
+                    },
                     min=0,
                     max=5,
-                    step=0.1,
                     value=0,
                     className='slider'
-                )
+                ),
             ],
             className='slider-container'
         ),
@@ -199,29 +189,160 @@ app.layout = html.Div(
                 html.Label('Przekrój zbiornika (a[m])',
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
+                dcc.Input(
+                    id={
+                        'type': 'dynamic-input',
+                        'index': 'a-slider'
+                    },
+                    type='text',
+                    placeholder='Wprowadź wartość...',
+                    value=1,
+                    style={'float': 'right', 'margin-right': 20}
+                ),
                 dcc.Slider(
-                    id='a-slider',
+                    id={
+                        'type': 'dynamic-slider',
+                        'index': 'a-slider'
+                    },
                     min=0,
                     max=5,
-                    step=0.1,
                     value=1,
                     className='slider'
-                )
+                ),
             ],
             className='slider-container'
         ),
 
+        # """ SUWAKI PID """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.Div(
+                            [
+                                html.Label('Próbkowanie (P)',
+                                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                                  'font-style': 'italic'}),
+
+                                dcc.Input(
+                                    id={
+                                        'type': 'dynamic-input',
+                                        'index': 'p-slider'
+                                    },
+                                    type='text',
+                                    value=0.1,
+                                    placeholder='Wprowadź wartość...',
+                                    style={'float': 'right', 'margin-right': 20}
+                                ),
+
+                                dcc.Slider(
+                                    id={
+                                        'type': 'dynamic-slider',
+                                        'index': 'p-slider'
+                                    },
+                                    min=0,
+                                    max=1,
+                                    value=0.1,
+                                    className='slider'
+                                ),
+                            ],
+                            className='slider-container'
+                        ),
+
+                        html.Div(
+                            [
+                                html.Label('Zdwojenie regulatora (I)',
+                                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                                  'font-style': 'italic'}),
+
+                                dcc.Input(
+                                    id={
+                                        'type': 'dynamic-input',
+                                        'index': 'i-slider'
+                                    },
+                                    type='text',
+                                    placeholder='Wprowadź wartość...',
+                                    value=0.1,
+                                    style={'float': 'right', 'margin-right': 20}
+                                ),
+
+                                dcc.Slider(
+                                    id={
+                                        'type': 'dynamic-slider',
+                                        'index': 'i-slider'
+                                    },
+                                    min=0,
+                                    max=1,
+                                    value=0.1,
+                                    className='slider'
+                                ),
+                            ],
+                            className='slider-container'
+                        ),
+
+                        html.Div(
+                            [
+                                html.Label('Wyprzedzenie regulatora (D)',
+                                           style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
+                                                  'font-style': 'italic'}),
+                                dcc.Input(
+                                    id={
+                                        'type': 'dynamic-input',
+                                        'index': 'd-slider'
+                                    },
+                                    value=0.01,
+                                    type='text',
+                                    placeholder='Wprowadź wartość...',
+                                    style={'float': 'right', 'margin-right': 20}
+                                ),
+
+                                dcc.Slider(
+                                    id={
+                                        'type': 'dynamic-slider',
+                                        'index': 'd-slider'
+                                    },
+                                    min=0,
+                                    max=0.5,
+                                    value=0.01,
+                                    className='slider'
+                                ),
+
+                            ],
+                            className='slider-container',
+                        ),
+                    ],
+                    style={'display': 'inline-block', 'height': '100%', 'width': '30%'}
+                ),
+
+                dcc.Graph(id='graph2', style={'display': 'inline-block', 'height': '100%', 'width': '70%'}),
+            ],
+            style={'display': 'flex', 'align-items': 'center'}
+        ),
+        # """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+        # """ SUWAKI ROZMYTEGO """
         html.Div(
             [
                 html.Label('Błąd regulacji (e)', style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                                         'font-style': 'italic'}),
                 dcc.Slider(
-                    id='e-slider',
+                    id={
+                        'type': 'dynamic-slider',
+                        'index': 'e-slider'
+                    },
                     min=5,
                     max=20,
-                    step=0.5,
                     value=10,
                     className='slider'
+                ),
+
+                dcc.Input(
+                    id={
+                        'type': 'dynamic-input',
+                        'index': 'e-slider'
+                    },
+                    type='text',
+                    placeholder='Wprowadź wartość...',
                 )
             ],
             className='slider-container'
@@ -233,12 +354,24 @@ app.layout = html.Div(
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
                 dcc.Slider(
-                    id='de-slider',
+                    id={
+                        'type': 'dynamic-slider',
+                        'index': 'de-slider'
+                    },
                     min=5,
                     max=20,
                     step=0.5,
                     value=10,
                     className='slider'
+                ),
+
+                dcc.Input(
+                    id={
+                        'type': 'dynamic-input',
+                        'index': 'de-slider'
+                    },
+                    type='text',
+                    placeholder='Wprowadź wartość...',
                 )
             ],
             className='slider-container'
@@ -250,12 +383,24 @@ app.layout = html.Div(
                            style={'color': '#c1c1d7', 'font-family': 'Arial', 'font-size': '20px',
                                   'font-style': 'italic'}),
                 dcc.Slider(
-                    id='q_in-slider',
+                    id={
+                        'type': 'dynamic-slider',
+                        'index': 'q_in-slider'
+                    },
                     min=5,
                     max=20,
                     step=0.5,
                     value=10,
                     className='slider'
+                ),
+
+                dcc.Input(
+                    id={
+                        'type': 'dynamic-input',
+                        'index': 'q_in-slider'
+                    },
+                    type='text',
+                    placeholder='Wprowadź wartość...',
                 )
             ],
             className='slider-container'
@@ -264,7 +409,6 @@ app.layout = html.Div(
         html.Div(
             [
                 dcc.Graph(id='graph1', style={'display': 'inline-block', 'width': '33%', 'height': '100%'}),
-                dcc.Graph(id='graph2', style={'display': 'inline-block', 'width': '33%', 'height': '100%'}),
                 dcc.Graph(id='graph3', style={'display': 'inline-block', 'width': '33%', 'height': '100%'})
             ],
             className='graph-container',
@@ -276,22 +420,42 @@ app.layout = html.Div(
 
 
 @app.callback(
+    Output({'type': 'dynamic-input', 'index': MATCH}, 'value'),
+    Output({'type': 'dynamic-slider', 'index': MATCH}, 'value'),
+    Input({'type': 'dynamic-slider', 'index': MATCH}, 'value'),
+    Input({'type': 'dynamic-input', 'index': MATCH}, 'value'))
+def update_slider_and_input(slider_val, input_val):
+    ctx = dash.callback_context
+
+    # Check which input fired the callback
+    if ctx.triggered:
+        input_id = ctx.triggered[0]["prop_id"].split(".")[0]
+
+        if "dynamic-slider" in input_id:
+            return str(slider_val), dash.no_update
+        else:
+            return input_val, float(input_val)
+    else:
+        return dash.no_update, dash.no_update
+
+
+@app.callback(
     [
         Output('graph1', 'figure'),
         Output('graph2', 'figure'),
-        Output('graph3', 'figure')
+        Output('graph3', 'figure'),
     ],
     [
-        Input('h_ref-slider', 'value'),
-        Input('t-slider', 'value'),
-        Input('p-slider', 'value'),
-        Input('i-slider', 'value'),
-        Input('d-slider', 'value'),
-        Input('h-slider', 'value'),
-        Input('a-slider', 'value'),
-        Input('e-slider', 'value'),
-        Input('de-slider', 'value'),
-        Input('q_in-slider', 'value')
+        Input({'type': 'dynamic-slider', 'index': 'h_ref-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 't-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 'p-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 'i-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 'd-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 'h-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 'a-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 'e-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 'de-slider'}, 'value'),
+        Input({'type': 'dynamic-slider', 'index': 'q_in-slider'}, 'value')
     ]
 )
 def update_graph(h_ref_slider_value, t_value, p_value,
@@ -369,4 +533,4 @@ def update_graph(h_ref_slider_value, t_value, p_value,
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)

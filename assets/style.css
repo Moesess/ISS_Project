@@ -3,9 +3,17 @@
 }
 
 .rc-slider-track{
-   background-color: #dc1818;
+   background-color: #ff0000;
 }
 
-/*.slider-container{*/
-/*   width:30%;*/
-/*}*/
+.all-sliders .rc-slider-track{
+   background-color: #00B3FF;
+}
+
+.fuzzy-slider .rc-slider-track{
+   background-color: #00ff03;
+}
+
+body{
+   color: #cecece;
+}
